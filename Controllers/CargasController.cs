@@ -7,32 +7,29 @@ using System.Text.RegularExpressions;
 
 namespace MockPruebaTecnica.Controllers
 {
-    public class CargasController : Controller
+    public class CargaController : Controller
     {
         private readonly AppDbContext _context;
 
-        public CargasController(AppDbContext context)
+        public CargaController(AppDbContext context)
         {
-            _context = context;           
+            _context = context;
         }
         public IActionResult Index()
         {
-            ViewData["Title"] = "Cargar Archivo";
             return View();
         }
 
-        private bool VentasExists(long? id)
+        private bool VentaExists(long? id)
         {
             return _context.Ventas.Any(e => e.Id == id);
         }
-
 
         [HttpPost]
         public async Task<IActionResult> CargarArchivo(IFormFile file)
         {
             if (file == null || file.Length == 0)
             {
-                TempData["ErrorMessage"] = "No se seleccionó ningún archivo.";
                 return BadRequest("Por favor, seleccione un archivo de Excel");
             }
 
@@ -49,70 +46,71 @@ namespace MockPruebaTecnica.Controllers
 
                     for (int fila = 1; fila < dataTable.Rows.Count; fila++)
                     {
-                        DateTime fechaVenta = DateTime.Parse(dataTable.Rows[fila][0].ToString());
-                        string nombreCliente = dataTable.Rows[fila][1].ToString();
-                        string apellidoCliente = dataTable.Rows[fila][2].ToString();
-                        string correoCliente = dataTable.Rows[fila][3].ToString();
-                        string codigoBarras = dataTable.Rows[fila][4].ToString();
-                        string nombreProducto = dataTable.Rows[fila][5].ToString();
-                        string descripcionProducto = dataTable.Rows[fila][6].ToString();
-                        string categoriaProducto = dataTable.Rows[fila][7].ToString();
-                        long cantidad = long.Parse(dataTable.Rows[fila][8].ToString());
+                        DateTime fecha_venta = Convert.ToDateTime(dataTable.Rows[fila][0]);
+                        string nombre = dataTable.Rows[fila][1].ToString();
+                        string apellido = dataTable.Rows[fila][2].ToString();
+                        string correo_electronico = dataTable.Rows[fila][3].ToString();
+                        string codigo_barras = dataTable.Rows[fila][4].ToString();
+                        string nombre_producto = dataTable.Rows[fila][5].ToString();
+                        string descripcion = dataTable.Rows[fila][6].ToString();
+                        string categoria = dataTable.Rows[fila][7].ToString();
+                        int cantidad = Convert.ToInt32(dataTable.Rows[fila][8]);
                         decimal precio = decimal.Parse(dataTable.Rows[fila][9].ToString());
-                        decimal totalVenta = cantidad * precio;
+                        decimal total_venta = decimal.Parse(dataTable.Rows[fila][10].ToString());
 
-                        // Buscar o crear el cliente
-                        var cliente = await _context.Clientes
-                            .FirstOrDefaultAsync(c => c.Correo == correoCliente);
-                        if (cliente == null)
-                        {
-                            // Crear nuevo cliente si no existe
-                            cliente = new Cliente
-                            {
-                                Nombre = nombreCliente,
-                                Apellido = apellidoCliente,
-                                Correo = correoCliente
-                            };
-                            _context.Clientes.Add(cliente);
-                        }
+                        // Verificar si el producto ya existe en la base de datos
+                        var producto = await _context.Productos.FirstOrDefaultAsync(p => p.CodigoBarras == codigo_barras);
 
-                        // Buscar o crear el producto
-                        var producto = await _context.Productos
-                            .FirstOrDefaultAsync(p => p.Codigo == codigoBarras);
                         if (producto == null)
                         {
-                            // Crear nuevo producto si no existe
-                            producto = new Productos
+                            // Si el producto no existe, lo creamos
+                            producto = new Producto
                             {
-                                Nombre = nombreProducto,
-                                descripcion = descripcionProducto,
-                                categoria = categoriaProducto,
-                                Codigo = codigoBarras,
+                                CodigoBarras = codigo_barras,
+                                NombreProducto = nombre_producto,
+                                Descripcion = descripcion,
+                                Categoria = categoria,
                                 Precio = precio
                             };
                             _context.Productos.Add(producto);
+                            await _context.SaveChangesAsync();
                         }
 
-                        // Crear la venta
-                        var venta = new Venta
+                        // Verificar si el cliente ya existe en la base de datos
+                        var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.CorreoElectronico == correo_electronico);
+
+                        if (cliente == null)
                         {
-                            Fecha = fechaVenta,
-                            ClienteId = cliente.Id,
-                            ProductoId = producto.Id,
+                            // Si el cliente no existe, lo creamos
+                            cliente = new Cliente
+                            {
+                                Nombre = nombre,
+                                Apellido = apellido,
+                                CorreoElectronico = correo_electronico
+                            };
+                            _context.Clientes.Add(cliente);
+                            await _context.SaveChangesAsync();
+                        }
+
+                        // Crear una nueva venta con los datos extraídos
+                        var nuevaVenta = new Venta
+                        {
+                            FechaVenta = fecha_venta,
+                            IdCliente = cliente.Id,
+                            IdProducto = producto.Id,
                             Cantidad = cantidad,
-                            Total = totalVenta
+                            TotalVenta = total_venta
                         };
 
-                        // Agregar la venta al contexto
-                        _context.Ventas.Add(venta);
+                        _context.Ventas.Add(nuevaVenta);
                     }
+
+                    // Guardar todas las ventas en la base de datos
+                    await _context.SaveChangesAsync();
                 }
             }
 
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction("Index", "Home");
+            return Ok("Archivo procesado exitosamente y datos insertados en la base de datos");
         }
-
     }
 }

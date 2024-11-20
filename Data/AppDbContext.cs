@@ -6,7 +6,7 @@ namespace MockPruebaTecnica.Data
 {
     public class AppDbContext : DbContext
     {
-        public DbSet<Productos> Productos { get; set; }
+        public DbSet<Producto> Productos { get; set; }
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<Cliente> Clientes { get; set; }
 

@@ -4,26 +4,32 @@ using System.Text.RegularExpressions;
 
 namespace MockPruebaTecnica.Models
 {
-    public class Productos
+    public class Producto
     {
+        [Key]
         [Column("id_producto")]
         public int Id { get; set; }
 
+        [Required]
+        [StringLength(50)]
         [Column("codigo_barras")]
-        [MaxLength(100)]
-        public string Codigo { get; set; }
+        public string CodigoBarras { get; set; }
 
+        [Required]
+        [StringLength(100)]
         [Column("nombre_producto")]
-        public string Nombre { get; set; }
+        public string NombreProducto { get; set; }
 
+        [StringLength(255)]
         [Column("descripcion")]
-        public string descripcion { get; set; }
+        public string Descripcion { get; set; }
 
-
+        [StringLength(50)]
         [Column("categoria")]
-        public string categoria { get; set; }
+        public string Categoria { get; set; }
 
-        [Column("precio")]
+        [Required]
+        [Column("precio", TypeName = "decimal(10, 2)")]
         public decimal Precio { get; set; }
 
     }

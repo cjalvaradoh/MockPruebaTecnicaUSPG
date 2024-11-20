@@ -1,46 +1,174 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "CargaArchivo";
 }
+<h2 class="mb-4">Dashboard</h2>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
-<p>
-    <button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#fileModal">
-        <i class="bi bi-file-earmark-spreadsheet"></i> Cargar Archivo
-    </button>
-</p>
+<!-- Formulario de filtros -->
+<form method="get" asp-controller="Dashboard" asp-action="Index" class="mb-4">
+    <div class="row align-items-end">
+        <!-- Filtro por Producto -->
+        <div class="col-auto">
+            <label for="producto" class="form-label">Filtrar por Producto</label>
+            <input type="text" id="producto" name="producto" placeholder="Buscar producto" value="@ViewData["ProductoFiltro"]" class="form-control" />
+        </div>
 
-
-<!-- Modal para cargar archivo -->
-<div class="modal fade" id="fileModal" tabindex="-1" aria-labelledby="fileModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h1 class="modal-title fs-5" id="fileModalLabel">Carga de Archivo Masiva</h1>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <!-- Filtro por Mes-Año -->
+        <div class="col-auto">
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="mesAnioDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    Filtro por Mes-Año
+                </button>
+                <div class="dropdown-menu p-3">
+                    <label for="mesAnio" class="form-label">Filtrar por Mes-Año</label>
+                    <input type="month" id="mesAnio" name="mesAnio" value="@ViewData["MesAnioFiltro"]" class="form-control" />
+                </div>
             </div>
-            <div class="modal-body">
-                <form method="post" asp-controller="Cargas" asp-action="CargarArchivo" enctype="multipart/form-data">
-                    <div class="form-group m-3">
-                        <label for="imageFile" class="control-label">Seleccione un archivo de Excel que desee cargar</label>
-                        <input type="file" name="file" class="form-control" accept=".xlsx" />
-                    </div>
-                    <button type="submit" class="btn btn-primary">Cargar</button>
-                </form>
+        </div>
+
+        <!-- Botón de Aplicar Filtros -->
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+        </div>
+    </div>
+</form>
+
+<!-- Mostrar los totales (Ventas y Unidades) -->
+<div class="row mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-header">Total de Ventas</div>
+            <div class="card-body">
+                <h5 id="totalVentas" class="card-title">$0.00</h5>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-header">Total de Unidades</div>
+            <div class="card-body">
+                <h5 id="totalUnidades" class="card-title">0</h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de ventas -->
+    <div class="col-6">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Ventas por Mes</h5>
+                <div id="graficoVentasMes" style="height: 400px;"></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Mostrar mensajes de éxito o error -->
-@if (TempData["ErrorMessage"] != null)
+<style>
+    .card {
+        padding: 10px;
+        margin: 20px;
+    }
+
+    .table {
+        margin-top: 20px;
+    }
+
+    h2 {
+        margin-top: 20px;
+    }
+</style>
+
+<!-- Mostrar los datos filtrados en la tabla -->
+@if (Model != null && Model.Any())
 {
-    <div class="alert alert-danger">
-        @TempData["ErrorMessage"]
-    </div>
+    <table class="table table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Producto</th>
+                <th>Fecha Venta</th>
+                <th>Cantidad</th>
+                <th>Total Venta</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var venta in Model)
+            {
+                <tr>
+                    <td>@venta.Producto.NombreProducto</td>
+                    <td>@venta.FechaVenta.ToString("yyyy-MM-dd")</td>
+                    <td>@venta.Cantidad</td>
+                    <td>@venta.TotalVenta</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p class="text-muted">No se encontraron ventas.</p>
 }
 
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success">
-        @TempData["SuccessMessage"]
-    </div>
-}
+<!-- Scripts para actualización de totales y gráfico -->
+<script>
+    let chart;
+
+    function actualizarTotales() {
+        // Obtener el total de ventas
+        fetch('/Dashboard/GetTotalVentas')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("totalVentas").innerText = '$' + data.toLocaleString();
+            });
+
+        // Obtener el total de unidades
+        fetch('/Dashboard/GetTotalUnidades')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("totalUnidades").innerText = data.toLocaleString();
+            });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+            fetch('/Dashboard/GetVentasPorMes')
+                .then(response => response.json())
+                .then(data => {
+                    // Asegúrate de que data tenga las propiedades totalesVentas y meses
+                    const totalesVentas = data.totalesVentas; // Array de totales de ventas
+                    const meses = data.meses; // Array de meses en formato YYYY-MM
+
+                    var options = {
+                        chart: {
+                            type: 'line'
+                        },
+                        series: [
+                            {
+                                name: 'Total de ventas por mes',
+                                data: data.totalesVentas
+                            }
+                        ],
+                        xaxis: {
+                            categories: meses // Meses a mostrar en el eje X
+                        },
+                        title: {
+                            text: 'Ventas Totales por Mes' // Ajustado a lo que corresponde
+                        }
+                    }
+
+                    // Crear y renderizar el nuevo gráfico
+                    chart = new ApexCharts(document.getElementById("graficoVentasMes"), options);
+                    chart.render();
+                })
+                .catch(error => {
+                    console.error('Error al obtener los datos de ventas:', error);
+                });
+        }
+
+        // Llamadas iniciales
+        actualizarTotales();
+        obtenerDatosVentasPorMes();
+
+        // Actualizar totales cada 30 segundos
+        setInterval(actualizarTotales, 30000);
+    });
+</script>
