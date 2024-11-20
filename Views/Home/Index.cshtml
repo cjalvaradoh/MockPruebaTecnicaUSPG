@@ -1,4 +1,5 @@
-﻿@{
+﻿@model List<MockPruebaTecnica.Models.Venta>
+@{
     ViewData["Title"] = "CargaArchivo";
 }
 <h2 class="mb-4">Dashboard</h2>
@@ -58,7 +59,7 @@
         <div class="card mb-3">
             <div class="card-body">
                 <h5 class="card-title">Ventas por Mes</h5>
-                <div id="graficoVentasMes" style="height: 400px;"></div>
+                <div id="graficoVentasMes" style="height: 160px;"></div>
             </div>
         </div>
     </div>
@@ -129,41 +130,49 @@ else
             });
     }
 
+</script>
+<script>
     document.addEventListener("DOMContentLoaded", function () {
-            fetch('/Dashboard/GetVentasPorMes')
-                .then(response => response.json())
-                .then(data => {
-                    // Asegúrate de que data tenga las propiedades totalesVentas y meses
-                    const totalesVentas = data.totalesVentas; // Array de totales de ventas
-                    const meses = data.meses; // Array de meses en formato YYYY-MM
+        fetch('/Dashboard/GetVentasPorMes')
+            .then(response => response.json())
+            .then(data => {
+                console.log(data); // Revisa qué datos recibes
+                const meses = data.map(item => `${item.Mes}/${item.Año}`);
+                const totalesVentas = data.map(item => item.TotalVentas);
 
-                    var options = {
-                        chart: {
-                            type: 'line'
-                        },
-                        series: [
-                            {
-                                name: 'Total de ventas por mes',
-                                data: data.totalesVentas
-                            }
-                        ],
-                        xaxis: {
-                            categories: meses // Meses a mostrar en el eje X
-                        },
-                        title: {
-                            text: 'Ventas Totales por Mes' // Ajustado a lo que corresponde
+                var options = {
+                    chart: {
+                        type: 'bar'
+                    },
+                    series: [
+                        {
+                            name: 'Total de ventas',
+                            data: totalesVentas
+                        }
+                    ],
+                    xaxis: {
+                        categories: meses
+                    },
+                    title: {
+                        text: 'Ventas Totales por Mes'
+                    },
+                    plotOptions: {
+                        bar: {
+                            horizontal: false
                         }
                     }
+                };
 
-                    // Crear y renderizar el nuevo gráfico
-                    chart = new ApexCharts(document.getElementById("graficoVentasMes"), options);
-                    chart.render();
-                })
-                .catch(error => {
-                    console.error('Error al obtener los datos de ventas:', error);
-                });
-        }
+                var chart = new ApexCharts(document.getElementById("graficoVentasMes"), options);
+                chart.render();
+            })
+            .catch(error => {
+                console.error('Error al obtener los datos de ventas:', error);
+            });
+    });
 
+
+    document.addEventListener("DOMContentLoaded", function () {
         // Llamadas iniciales
         actualizarTotales();
         obtenerDatosVentasPorMes();
